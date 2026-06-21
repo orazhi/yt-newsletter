@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- yt-newsletter ---
+# Personal data and ephemeral artifacts — never commit.
+config/channels.txt        # your real subscription list
+config/cookies.txt         # YouTube cookies, if you use the cookie auth path
+items.json
+digest.html
+/tmp/yt-newsletter/
+

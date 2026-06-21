@@ -1,0 +1,12 @@
+# yt-newsletter — runtime dependencies
+# Install with:  pip install -r requirements.txt   (see setup.sh)
+
+# Video metadata, description, and subtitle/transcript extraction.
+yt-dlp>=2026.6.9
+
+# PO-token provider plugin for yt-dlp. Lets the reliable `web` player client
+# pass YouTube's "sign in to confirm you're not a bot" check from datacenter
+# IPs. Requires the provider backend (see setup.sh) AND egress to
+# www.google.com (the BotGuard interpreter VM). Optional but strongly
+# recommended — without it, transcript extraction is best-effort on cloud IPs.
+bgutil-ytdlp-pot-provider>=1.3.0
