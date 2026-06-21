@@ -63,29 +63,34 @@ to the ephemeral environment and needs no database.
 The core digest (title, channel, description, thumbnail, publish date, views)
 comes from the **RSS feed** and is reliable from any IP.
 
-**Transcripts** are the exception. yt-dlp must pass YouTube's "sign in to
-confirm you're not a bot" check, which on datacenter/cloud IPs requires a
-**PO token**. `setup.sh` builds the bgutil PO-token provider, but token
-generation also needs **egress to `www.google.com`** (it loads YouTube's
-BotGuard interpreter VM from `//www.google.com/js/th/…js`).
+**Transcripts** are the exception: yt-dlp must pass YouTube's "sign in to
+confirm you're not a bot" check, which fails on datacenter/cloud IPs. **This
+project authenticates with cookies** to get past it.
 
-So for reliable transcripts you need **one** of:
+### Cookies setup (chosen path)
 
-- **(A) Egress:** allow `www.google.com` (and `www.gstatic.com`) in the
-  environment's network policy, or set it to **Full**. Then the PO-token
-  provider works and the `web` client succeeds. No account, no maintenance.
-- **(B) Cookies:** export your YouTube cookies to `config/cookies.txt`
-  (Netscape format) and set `YT_DLP_EXTRA_ARGS="--cookies config/cookies.txt"`.
-  Works without the egress change, but carries some account risk and cookies
-  expire.
+1. Export your YouTube cookies in **Netscape format** (e.g. the "Get cookies.txt"
+   browser extension, while signed in to YouTube). Use a throwaway/secondary
+   Google account if you're cautious — automated access from a cloud IP can get
+   an account flagged.
+2. Make them available to the run, either:
+   - place the file at **`config/cookies.txt`** (gitignored — never committed), or
+   - inject at runtime via **`$YT_COOKIES_FILE`** (point it at a path you write
+     from a stored secret), or pass **`--cookies <path>`** to `fetch_videos.py`.
+3. `fetch_videos.py` auto-detects `config/cookies.txt` / `$YT_COOKIES_FILE`. It
+   logs `using cookies: …` when active.
 
-Without either, transcript extraction is best-effort (often blocked on cloud
-IPs) and summaries fall back to the description — the digest still builds and
-sends, just with thinner per-video summaries for channels that write sparse
-descriptions.
+Cookies expire — if transcripts start failing with "sign in to confirm…",
+refresh `cookies.txt`. Without cookies, transcript extraction is best-effort
+(usually blocked on cloud IPs) and summaries fall back to the description; the
+digest still builds and sends.
+
+> Alternative (not used here): a PO-token provider (`BUILD_POT=1` in `setup.sh`)
+> plus `www.google.com` egress. Avoids cookies/account risk but needs the egress
+> change. See `setup.sh`.
 
 ## Tier 2 (later)
 
 Keyframe extraction + vision. Needs the **video file** to download, which is
-gated by the same bot check as transcripts (so it needs option A or B above),
-plus `ffmpeg` for frame extraction. Not built yet.
+gated by the same bot check — so it uses the same `cookies.txt` — plus `ffmpeg`
+for frame extraction. Not built yet.

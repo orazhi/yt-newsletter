@@ -45,6 +45,11 @@ NS = {
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36")
 
+# Path to a Netscape-format cookies.txt used to authenticate yt-dlp (bypasses
+# the "confirm you're not a bot" check on cloud IPs). Set in main() from
+# --cookies / $YT_COOKIES_FILE / config/cookies.txt. None = unauthenticated.
+COOKIES: str | None = None
+
 
 # --------------------------------------------------------------------------- #
 # Environment setup
@@ -205,6 +210,8 @@ def fetch_feed_entries(channel_id: str) -> list[dict]:
 def _yt_dlp(args: list[str], timeout: int = 120) -> subprocess.CompletedProcess:
     extra = os.environ.get("YT_DLP_EXTRA_ARGS", "")
     cmd = ["yt-dlp", "--no-warnings", "--no-progress"]
+    if COOKIES:
+        cmd += ["--cookies", COOKIES]
     if extra:
         cmd += extra.split()
     cmd += args
@@ -321,9 +328,27 @@ def main(argv: list[str] | None = None) -> int:
                     help="also fetch full metadata via yt-dlp -J (duration, full "
                          "description). Needs cookies/PO-token on flagged IPs; the "
                          "default RSS-only path is more reliable.")
+    ap.add_argument("--cookies", default=None,
+                    help="path to a Netscape cookies.txt to authenticate yt-dlp "
+                         "(bypasses YouTube's bot check). Defaults to "
+                         "$YT_COOKIES_FILE, else config/cookies.txt if present.")
     args = ap.parse_args(argv)
 
     ensure_certifi()
+
+    # Resolve the cookies file: --cookies > $YT_COOKIES_FILE > config/cookies.txt.
+    global COOKIES
+    candidate = (args.cookies or os.environ.get("YT_COOKIES_FILE")
+                 or "config/cookies.txt")
+    if candidate and Path(candidate).is_file() and Path(candidate).stat().st_size > 0:
+        COOKIES = candidate
+        print(f"[info] using cookies: {COOKIES}", file=sys.stderr)
+    elif args.cookies or os.environ.get("YT_COOKIES_FILE"):
+        print(f"[warn] cookies file not found/empty: {candidate} — "
+              f"transcripts will be best-effort", file=sys.stderr)
+    else:
+        print("[info] no cookies file — transcripts best-effort "
+              "(see ROUTINE.md)", file=sys.stderr)
 
     cutoff = parse_iso(args.since) if args.since else now_utc() - dt.timedelta(hours=24)
     print(f"[info] cutoff: {cutoff.isoformat()}  (videos published after this)",

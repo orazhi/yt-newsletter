@@ -45,10 +45,11 @@ fetch → summarise → build → send).
 ## Reliability note (transcripts)
 
 The core digest is reliable everywhere. **Transcripts** (and, later, Tier 2
-video downloads) must pass YouTube's bot check, which on cloud IPs needs either
-**`www.google.com` egress** (for the PO-token provider `setup.sh` builds) or
-**YouTube cookies**. Without one, transcripts are best-effort and summaries fall
-back to the description. Details in [ROUTINE.md](ROUTINE.md#reliability--transcripts-important).
+video downloads) must pass YouTube's bot check, which fails on cloud IPs. This
+project gets past it with **cookies**: put a Netscape `cookies.txt` at
+`config/cookies.txt` (or set `$YT_COOKIES_FILE`). Without cookies, transcripts
+are best-effort and summaries fall back to the description. Full setup in
+[ROUTINE.md](ROUTINE.md#cookies-setup-chosen-path).
 
 ## Status
 

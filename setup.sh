@@ -7,11 +7,11 @@
 #
 #   1. install Python deps (yt-dlp + PO-token plugin)
 #   2. patch certifi -> system CA bundle (TLS-interception fix; see probe_v2.sh)
-#   3. build the bgutil PO-token provider (script mode) for reliable transcripts
+#   3. (opt-in) build the bgutil PO-token provider for transcript auth
 #
-# Env:
-#   SKIP_POT=1   skip building the PO-token provider (transcripts become
-#                best-effort instead of reliable)
+# Transcript auth: this project uses COOKIES (config/cookies.txt) to pass
+# YouTube's bot check — no PO-token provider or www.google.com egress needed.
+# The PO-token provider is an alternative; build it only if you set BUILD_POT=1.
 set -uo pipefail
 cd "$(dirname "$0")"
 
@@ -35,12 +35,23 @@ else
   echo "[setup]   no system CA bundle at $SYSTEM_CA (not a proxied env) — skipping"
 fi
 
-if [ "${SKIP_POT:-0}" = "1" ]; then
-  echo "[setup] SKIP_POT=1 — not building PO-token provider (transcripts best-effort)"
+if [ -f config/cookies.txt ] && [ -s config/cookies.txt ]; then
+  echo "[setup] config/cookies.txt present — transcripts will authenticate via cookies."
+fi
+
+if [ "${BUILD_POT:-0}" != "1" ]; then
+  cat <<'NOTE'
+[setup] done. (PO-token provider not built — chosen transcript path is cookies.)
+
+  Put your YouTube cookies at  config/cookies.txt  (Netscape format), or inject
+  them at runtime via $YT_COOKIES_FILE. Without cookies, transcripts are
+  best-effort; the rest of the digest still works. To use the PO-token provider
+  instead of cookies, re-run with BUILD_POT=1 (also needs www.google.com egress).
+NOTE
   exit 0
 fi
 
-echo "[setup] building bgutil PO-token provider (script mode)…"
+echo "[setup] BUILD_POT=1 — building bgutil PO-token provider (script mode)…"
 SCRIPT="$POT_DIR/server/build/generate_once.js"
 if [ -f "$SCRIPT" ]; then
   echo "[setup]   already built at $SCRIPT"
