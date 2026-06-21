@@ -219,8 +219,14 @@ __marimo__/
 
 # --- yt-newsletter ---
 # Personal data and ephemeral artifacts — never commit.
-config/channels.txt        # your real subscription list
-config/cookies.txt         # YouTube cookies, if you use the cookie auth path
+# NOTE: gitignore does not support trailing inline comments — keep patterns on
+# their own line, or the whole line (comment included) becomes the pattern and
+# matches nothing.
+# your real subscription list:
+config/channels.txt
+# YouTube cookies — account-takeover-grade secret, never commit:
+config/cookies.txt
+cookies.txt
 items.json
 digest.html
 /tmp/yt-newsletter/
