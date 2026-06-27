@@ -229,5 +229,8 @@ config/cookies.txt
 cookies.txt
 items.json
 digest.html
+render.out
+# per-video study notes the CI agent writes (ephemeral):
+notes/
 /tmp/yt-newsletter/
 
