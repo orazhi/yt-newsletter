@@ -1,0 +1,18 @@
+# yt-newsletter — subscribed channels (one per line)
+#
+# Copy this file to  config/channels.txt  and add the channels you want in the
+# digest. Blank lines and #-comments are ignored.
+#
+# Each line may be any of:
+#   - a channel id:   UCYO_jab_esuFRV4b17AJtAw
+#   - an @handle:     @3blue1brown
+#   - a channel URL:  https://www.youtube.com/@veritasium
+#
+# Channel ids are the most robust (no extra lookup). To bulk-import your real
+# subscriptions, use Google Takeout → YouTube → "subscriptions" (subscriptions.csv
+# has a Channel Id column), or run:  yt-dlp --flat-playlist --print channel_id <url>
+#
+# Examples (remove these and add your own):
+@3blue1brown
+@veritasium
+UCYO_jab_esuFRV4b17AJtAw

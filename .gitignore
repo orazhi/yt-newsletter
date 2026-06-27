@@ -216,3 +216,21 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- yt-newsletter ---
+# Personal data and ephemeral artifacts — never commit.
+# NOTE: gitignore does not support trailing inline comments — keep patterns on
+# their own line, or the whole line (comment included) becomes the pattern and
+# matches nothing.
+# your real subscription list:
+config/channels.txt
+# YouTube cookies — account-takeover-grade secret, never commit:
+config/cookies.txt
+cookies.txt
+items.json
+digest.html
+render.out
+# per-video study notes the CI agent writes (ephemeral):
+notes/
+/tmp/yt-newsletter/
+
