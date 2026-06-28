@@ -48,9 +48,10 @@ def collect_items(since_iso: str, cfg: Config, max_transcript_chars: int) -> lis
                 if segments
                 else ""
             )
-            tag = "transcript" if found else "no-transcript"
+            lang = segments[0].language if segments else ""
+            tag = f"transcript::{lang}" if found else "no-transcript"
             print(f"[fetch]   {video.video_id} ({tag}): {video.title[:60]}", file=sys.stderr)
-            items.append(serialize.item_to_dict(video, found, text))
+            items.append(serialize.item_to_dict(video, found, text, lang))
     return items
 
 

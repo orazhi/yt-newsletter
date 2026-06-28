@@ -83,10 +83,13 @@ def study_notes_from_dict(video: Video, data: dict, transcript_found: bool) -> S
     )
 
 
-def item_to_dict(video: Video, transcript_found: bool, transcript_text: str) -> dict:
+def item_to_dict(
+    video: Video, transcript_found: bool, transcript_text: str, transcript_lang: str = ""
+) -> dict:
     """One entry of items.json — the Stage 1 -> Stage 2 handoff."""
     return {
         "video": video_to_dict(video),
         "transcript_found": transcript_found,
+        "transcript_language": transcript_lang,
         "transcript": transcript_text,
     }
