@@ -1,19 +1,24 @@
-"""yt_newsletter — turn recent YouTube uploads into a deep, readable email digest.
+"""yt_newsletter — a nightly, deduplicated, cited intelligence briefing by email.
 
-Cookie-free pipeline: a channel's RSS feed lists recent uploads, the transcript
-API pulls the words, Claude turns the transcript into near-complete study notes,
-and the renderer builds an email-friendly HTML digest.
+Instead of scraping YouTube transcripts (IP-blocked from cloud runners), the
+briefing follows each source at its most accessible point — RSS, the arXiv API,
+Hacker News, and the YouTube RSS *listing* — then dedups against what it already
+sent, clusters the same story across sources, and emails the diff.
+
+Modules:
+  feeds        — the source registry (which feed serves which beat)
+  gather       — Stage 1: fetch every source, normalize into Items
+  briefing     — dedup, cluster, and the cross-night "diff since last night"
+  render_brief — turn the synthesized briefing JSON into HTML email
+  sources      — YouTube RSS listing + a retrying HTTP helper (reused by gather)
+  models       — shared data structures (Video)
 """
 
 __all__ = [
-    "models",
-    "config",
+    "feeds",
+    "gather",
+    "briefing",
+    "render_brief",
     "sources",
-    "transcript",
-    "summarize",
-    "serialize",
-    "render",
-    "render_notes",
-    "fetch_only",
-    "pipeline",
+    "models",
 ]

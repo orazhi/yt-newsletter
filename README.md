@@ -1,91 +1,93 @@
 # yt-newsletter
 
-A nightly routine, run inside Claude, that turns your YouTube subscriptions into
-**deep study notes you can read instead of watching**. For each recent upload it
-fetches the transcript and has Claude write near-complete notes — the actual
-ideas, arguments, examples, numbers, and takeaways, section by section with
-timestamps — then emails you the digest via the Gmail connector.
+A **nightly personal intelligence briefing** — "a diff of the world since last
+night" — researched, deduplicated, and cited, in your inbox by morning.
 
-The goal is simple: get the knowledge and wisdom of an hour-long video in a
-few minutes of reading, and only open YouTube when you actually want to watch.
+Instead of you watching a stack of YouTube channels, a GitHub Actions cron pulls
+the *same* wisdom from each creator's most **accessible** source — newsletters
+(The Batch, TLDR sec, Data Elixir), the arXiv API, Hacker News, blogs, and for
+the video-only channels the YouTube RSS *listing* — then removes anything you
+were already briefed on, clusters the same story across sources, and has Claude
+write a tight, sectioned briefing where **every claim traces to a source URL**.
+It runs unattended in the cloud, so it works while your laptop is off.
 
-**Cookie-free.** Channel listing uses each channel's public **RSS feed** and
-content comes from the **transcript API** — both unauthenticated and not
-bot-gated. The only secret is `ANTHROPIC_API_KEY` for the summaries.
+Three beats — **AI & Engineering**, **News & Current Affairs**, **Money &
+Life** — plus a **watchlist** at the bottom: the recent videos from your
+channels whose topic the text sections *didn't* already cover (so you only open
+YouTube for what's genuinely additive).
 
-**Pure routine, no stored state.** Artifacts (HTML, transcripts) are ephemeral
-(`/tmp`, never committed). Dedup is derived from Gmail — each run only includes
-videos published after your last digest email.
+## Why it isn't IP-blocked
+
+YouTube's transcript API bot-walls datacenter IPs, which is why scraping it from
+a cloud runner fails. RSS, the arXiv API, Hacker News, and the YouTube RSS
+*listing* (titles + descriptions only) are **not** walled that way — so the
+briefing fetches happily from a GitHub Actions runner with your laptop in a
+cupboard.
+
+## How it works — four stages, one ephemeral runner
+
+| # | Stage | Module | Secrets |
+|---|-------|--------|---------|
+| 1 | **gather** — fetch every source, drop anything seen before, cluster dups | `gather.py` → `feeds.py`, `briefing.py` | none |
+| 2 | **synth** — Claude reads `input.json`, writes the crafted briefing JSON | `claude-code-action` | OAuth token |
+| 3 | **render** — briefing JSON → HTML email | `render_brief.py` | none |
+| 4 | **email** — SMTP-send it, then fold tonight's items into memory | `send_email.py`, `briefing.py` | SMTP |
+
+**The diff ("since last night").** A small `state/memory.json` maps each story's
+canonical key → the date it was first sent. It lives in the **Actions cache**
+(not committed to the repo), is restored at the start of each run and saved at
+the end, and self-prunes at 45 days. Items already in memory are filtered out
+before Claude ever sees them; a story is only folded into memory *after* a
+successful send, so a failed run never silently "uses up" news.
+
+**Injection-hardening.** Stage 1 fetches feeds but holds no secrets. Stage 2
+runs Claude with **offline tools only** (`Read`/`Write`/`Glob`; no
+`Bash`/`WebFetch`/`WebSearch`), so untrusted feed text can neither run commands
+nor invent citations — every URL in the output must come from the fetched input.
 
 ## Layout
 
 | Path | Purpose |
 |------|---------|
-| `yt_newsletter/sources.py` | channel handle/URL → recent uploads via RSS (no auth) |
-| `yt_newsletter/transcript.py` | timestamped transcript via youtube-transcript-api |
-| `yt_newsletter/summarize.py` | transcript → deep study notes (Claude, structured output) |
-| `yt_newsletter/render.py` | study notes → email-friendly HTML (unit-tested) |
-| `yt_newsletter/pipeline.py` · `__main__.py` | orchestration + `python -m` CLI |
-| `config/channels.example.txt` | template for your subscribed channels |
-| `tests/` | offline tests for the renderer and RSS parser |
-| `setup.sh` | install deps (idempotent) |
-| `ROUTINE.md` | the nightly orchestration Claude follows (incl. Gmail steps) |
+| `yt_newsletter/feeds.py` | the source registry: every feed + which beat it serves |
+| `yt_newsletter/gather.py` | Stage 1 — fetch all sources, normalize into Items (stdlib RSS/Atom/HN parsers) |
+| `yt_newsletter/briefing.py` | dedup, clustering, and the cross-night memory/diff (unit-tested) |
+| `yt_newsletter/render_brief.py` | synthesized briefing JSON → HTML email (unit-tested) |
+| `yt_newsletter/sources.py` | YouTube RSS listing + a retrying HTTP helper (reused by gather) |
+| `yt_newsletter/models.py` | shared data structures (`Video`) |
+| `scripts/send_email.py` | provider-agnostic SMTP sender |
+| `.github/workflows/briefing.yml` | the nightly cron that runs all four stages |
+| `tests/` | offline tests for the briefing engine and the RSS parser |
 
-## Quick start
+## Setup
+
+The whole pipeline is **stdlib-only** (no `pip install`), so there's nothing to
+build. You only configure secrets, under
+**Settings → Secrets and variables → Actions → Secrets**:
+
+| Secret | Used by | How to get it |
+|--------|---------|---------------|
+| `CLAUDE_CODE_OAUTH_TOKEN` | Stage 2 | run `claude setup-token` (Pro/Max subscription) |
+| `SMTP_HOST` / `SMTP_PORT` | Stage 4 | your mail provider |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | Stage 4 | mailbox / app password |
+| `RECIPIENT_EMAIL` | Stage 4 | where the briefing is delivered (never set from model output) |
+
+No repository **variables** are needed — the source list lives in `feeds.py`.
+
+## Running it
+
+It runs automatically every night (`cron: "30 1 * * *"` ≈ 07:00 IST). To run it
+on demand: **Actions → Nightly briefing → Run workflow** (optionally set the
+lookback, e.g. `3d` or `36h`).
+
+To edit *what* it follows, edit the `_AI` / `_NEWS` / `_MONEY` / `_WATCH` lists
+in `yt_newsletter/feeds.py`.
+
+## Tests
 
 ```bash
-bash setup.sh
-cp config/channels.example.txt config/channels.txt   # then add your channels
-export ANTHROPIC_API_KEY=...                          # for the deep summaries
-python -m yt_newsletter --since 2026-06-20T00:00:00Z --out /tmp/yt-newsletter/digest.html
+python tests/test_briefing.py    # dedup / clustering / memory / parsers / render
+python tests/test_sources.py     # YouTube RSS listing parser
 ```
 
-It prints `SUBJECT:` and `OUT:` lines; open the HTML to eyeball it. See
-**[ROUTINE.md](ROUTINE.md)** for the full nightly flow (cutoff from Gmail →
-build → send).
-
-## How it works
-
-1. **List recent uploads (no auth).** Each channel's public RSS feed
-   (`/feeds/videos.xml?channel_id=…`) lists recent videos with id, title,
-   publish time, description, and thumbnail. Handles/custom URLs are resolved to
-   a channel id automatically. Videos published after `--since` are kept.
-2. **Get the transcript (no cookies).** `youtube-transcript-api` pulls the
-   caption track YouTube already serves — this sidesteps the bot-wall that blocks
-   yt-dlp's extraction/download path. Timestamps are preserved.
-3. **Write deep study notes.** Claude (`claude-opus-4-8`, structured outputs +
-   adaptive thinking) turns the transcript into a faithful, section-by-section
-   knowledge transfer: TL;DR, the actual arguments/examples/numbers, insights,
-   takeaways, glossary, and references.
-4. **Render + send.** The renderer builds the HTML digest; the Gmail connector
-   (in your connector-enabled Claude environment) emails it to you.
-
-## Configuration
-
-All optional, via env vars:
-
-| Var | Default | Meaning |
-|-----|---------|---------|
-| `ANTHROPIC_API_KEY` | — | **required** for summaries |
-| `YT_NEWSLETTER_CHANNELS` | — | comma-separated channels (overrides `config/channels.txt`) |
-| `YT_NEWSLETTER_MODEL` | `claude-opus-4-8` | summarization model (`claude-haiku-4-5` for cheaper) |
-| `YT_NEWSLETTER_EFFORT` | `high` | thinking effort: `low`/`medium`/`high`/`xhigh`/`max` |
-| `YT_NEWSLETTER_MAX_PER_CHANNEL` | `5` | cap videos per channel per run |
-| `YT_NEWSLETTER_MAX_SUMMARY_TOKENS` | `16000` | output cap (raise for very long videos) |
-| `YT_NEWSLETTER_MAX_TRANSCRIPT_CHARS` | `120000` | transcript chars fed to the model |
-
-## Reliability notes
-
-- RSS + transcript are unauthenticated and work from any IP. On a heavily
-  flagged datacenter IP the feed endpoint can throttle intermittently
-  (occasional 404/500); `sources._http_get` retries with backoff to ride
-  through it. A video with no captions (live, music-only, subs disabled) falls
-  back to title/description and is flagged in the digest.
-- Transcripts can rarely be rate-limited; the run skips to description-only for
-  that video rather than failing the whole digest.
-
-## Status
-
-- **Tier 1** (transcript → deep study notes → HTML → email): **built & tested.**
-- **Tier 2** (keyframe extraction + vision for slides/animation-heavy videos):
-  not yet — see [PLAN.md](PLAN.md).
+Both are offline (no network, no model).
