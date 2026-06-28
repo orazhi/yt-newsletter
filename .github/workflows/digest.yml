@@ -36,6 +36,7 @@ on:
 # PRs, or comments — so no write scopes are granted.
 permissions:
   contents: read
+  id-token: write
 
 # Never let two nightly runs overlap.
 concurrency:
@@ -64,9 +65,7 @@ jobs:
       - name: Stage 1 — fetch videos + transcripts (no model, no secrets)
         id: fetch
         env:
-          # Optional override: if you set a YT_NEWSLETTER_CHANNELS repo variable,
-          # it takes precedence over config/channels.txt in the repo.
-          YT_NEWSLETTER_CHANNELS: ${{ vars.YT_NEWSLETTER_CHANNELS || '' }}
+          YT_NEWSLETTER_CHANNELS: ${{ vars.YT_NEWSLETTER_CHANNELS }}
         run: |
           SINCE="${{ github.event.inputs.since }}"
           if [ -n "$SINCE" ]; then
