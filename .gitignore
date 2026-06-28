@@ -222,8 +222,6 @@ __marimo__/
 # NOTE: gitignore does not support trailing inline comments — keep patterns on
 # their own line, or the whole line (comment included) becomes the pattern and
 # matches nothing.
-# your real subscription list:
-config/channels.txt
 # YouTube cookies — account-takeover-grade secret, never commit:
 config/cookies.txt
 cookies.txt

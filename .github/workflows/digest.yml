@@ -36,6 +36,7 @@ on:
 # PRs, or comments — so no write scopes are granted.
 permissions:
   contents: read
+  id-token: write
 
 # Never let two nightly runs overlap.
 concurrency:
