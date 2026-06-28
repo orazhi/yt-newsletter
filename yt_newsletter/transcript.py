@@ -9,16 +9,20 @@ point in the video. Returns None when a video has no usable transcript
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 
-# Preferred caption languages, in order. English variants first; extend as needed.
-DEFAULT_LANGUAGES: tuple[str, ...] = ("en", "en-US", "en-GB")
+DEFAULT_LANGUAGES: tuple[str, ...] = (
+    "en", "en-US", "en-GB", "en-IN",
+    "hi", "hi-IN",
+)
 
 
 @dataclass
 class Segment:
     start: float  # seconds from the start of the video
     text: str
+    language: str = ""
 
 
 def _format_timestamp(seconds: float) -> str:
@@ -36,29 +40,71 @@ def get_segments(
     """Return timestamped transcript segments for a video id, or None."""
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-    except ImportError:  # dependency not installed
+    except ImportError:
+        print(f"[transcript] {video_id}: youtube-transcript-api not installed", file=sys.stderr)
         return None
 
+    api = YouTubeTranscriptApi()
     langs = list(languages)
+
+    # Step 1: list what's actually available so we can log it.
+    available_langs: list[str] = []
     try:
-        # youtube_transcript_api >= 1.0 exposes an instance .fetch(); older
-        # releases expose the classmethod .get_transcript(). Support both.
-        if hasattr(YouTubeTranscriptApi, "get_transcript"):
-            raw = YouTubeTranscriptApi.get_transcript(video_id, languages=langs)
-            pairs = [(s.get("start", 0.0), s.get("text", "")) for s in raw]
-        else:
-            fetched = YouTubeTranscriptApi().fetch(video_id, languages=langs)
-            pairs = [(getattr(s, "start", 0.0), getattr(s, "text", "")) for s in fetched]
-    except Exception:
-        # No transcript, disabled subs, rate-limited, or a transient error.
+        transcript_list = api.list(video_id)
+        available_langs = [t.language_code for t in transcript_list]
+    except Exception as e:
+        print(f"[transcript] {video_id}: list failed: {type(e).__name__}: {e}", file=sys.stderr)
         return None
+
+    if not available_langs:
+        print(f"[transcript] {video_id}: no captions available at all", file=sys.stderr)
+        return None
+
+    # Step 2: fetch the best matching transcript.
+    matched_lang = ""
+    try:
+        fetched = api.fetch(video_id, languages=langs)
+        pairs = [(getattr(s, "start", 0.0), getattr(s, "text", "")) for s in fetched]
+        # Determine which language was actually returned.
+        for lang in langs:
+            if lang in available_langs:
+                matched_lang = lang
+                break
+    except Exception as e:
+        # None of the requested languages matched — try ANY available transcript
+        # as a last resort. A transcript in an unexpected language is still better
+        # than falling back to description-only.
+        print(
+            f"[transcript] {video_id}: preferred langs {langs} not in {available_langs}, "
+            f"trying fallback to first available",
+            file=sys.stderr,
+        )
+        try:
+            fallback_lang = available_langs[0]
+            fetched = api.fetch(video_id, languages=[fallback_lang])
+            pairs = [(getattr(s, "start", 0.0), getattr(s, "text", "")) for s in fetched]
+            matched_lang = fallback_lang
+        except Exception as e2:
+            print(
+                f"[transcript] {video_id}: fallback also failed: {type(e2).__name__}: {e2}",
+                file=sys.stderr,
+            )
+            return None
 
     segments = [
-        Segment(start=float(start), text=text.strip())
+        Segment(start=float(start), text=text.strip(), language=matched_lang)
         for start, text in pairs
         if text and text.strip()
     ]
-    return segments or None
+    if not segments:
+        print(f"[transcript] {video_id}: fetched but all segments empty", file=sys.stderr)
+        return None
+
+    print(
+        f"[transcript] {video_id}: OK lang={matched_lang} segments={len(segments)}",
+        file=sys.stderr,
+    )
+    return segments
 
 
 def to_timestamped_text(segments: list[Segment], max_chars: int = 120_000) -> str:
