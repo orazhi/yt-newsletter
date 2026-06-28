@@ -230,5 +230,9 @@ digest.html
 render.out
 # per-video study notes the CI agent writes (ephemeral):
 notes/
+# nightly-briefing artifacts (ephemeral) + cross-night memory (lives in CI cache):
+briefing/
+briefing.html
+state/
 /tmp/yt-newsletter/
 
